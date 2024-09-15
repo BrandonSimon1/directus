@@ -1,9 +1,9 @@
 import { useEnv } from '@directus/env';
+
 import { InvalidCredentialsError, InvalidPayloadError } from '@directus/errors';
 import type { Accountability } from '@directus/types';
-import argon2 from 'argon2';
 import { Router } from 'express';
-import Joi as BaseJoi from 'joi';
+import { default as BaseJoi } from 'joi';
 import { performance } from 'perf_hooks';
 import { REFRESH_COOKIE_OPTIONS, SESSION_COOKIE_OPTIONS } from '../../constants.js';
 import { respond } from '../../middleware/respond.js';
@@ -15,10 +15,17 @@ import { getIPFromReq } from '../../utils/get-ip-from-req.js';
 import { stall } from '../../utils/stall.js';
 import { AuthDriver } from '../auth.js';
 import JoiPhoneNumber from 'joi-phone-number'
+import twilio from "twilio"
+import { getAuthProvider } from '../../auth.js';
+
+const env = useEnv()
+
+const client = twilio(env['TWILIO_ACCOUNT_SID'] as string, env['TWILIO_AUTH_TOKEN'] as string)
 
 const Joi = BaseJoi.extend(JoiPhoneNumber);
 
 export class TwilioAuthDriver extends AuthDriver {
+
 	async getUserID(payload: Record<string, any>): Promise<string> {
 		if (!payload['phone']) {
 			throw new InvalidCredentialsError();
@@ -37,9 +44,12 @@ export class TwilioAuthDriver extends AuthDriver {
 		return user.id;
 	}
 
-	async verify(user: User, code?: string): Promise<void> {
+	async verify(user: User, code: string): Promise<void> {
+		if (!user.phone) {
+			throw new InvalidCredentialsError();
+		}
 		const verificationCheck = await client.verify.v2
-			.services("VAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+			.services(env['TWILIO_SERVICE'] as string)
 			.verificationChecks.create({
 				code,
 				to: user.phone,
@@ -52,7 +62,7 @@ export class TwilioAuthDriver extends AuthDriver {
 
 	async createVerification(payload: Record<string, any>): Promise<void> {
 		await client.verify.v2
-			.services("VAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+			.services(env['TWILIO_SERVICE'] as string)
 			.verifications.create({
 				channel: "sms",
 				to: payload['phone'],
@@ -64,7 +74,7 @@ export class TwilioAuthDriver extends AuthDriver {
 	}
 }
 
-export function createTwilioAuthRouter(provider: string): Router {
+export function createTwilioAuthRouter(providerName: string): Router {
 	const env = useEnv();
 
 	const router = Router();
@@ -87,11 +97,10 @@ export function createTwilioAuthRouter(provider: string): Router {
 
 	router.post(
 		'/verify',
-		asyncHandler(async (req, res, next) => {
+		asyncHandler(async (req, _, next) => {
 			const provider = getAuthProvider(providerName) as TwilioAuthDriver;
 			const { error } = verifySchema.validate(req.body);
 			if (error) {
-				await stall(STALL_TIME, timeStart);
 				throw new InvalidPayloadError({ reason: error.message });
 			}
 			await provider.createVerification(req.body)
@@ -130,7 +139,7 @@ export function createTwilioAuthRouter(provider: string): Router {
 
 			const mode: AuthenticationMode = req.body.mode ?? 'json';
 
-			const { accessToken, refreshToken, expires } = await authenticationService.login(provider, req.body, {
+			const { accessToken, refreshToken, expires } = await authenticationService.login(providerName, req.body, {
 				session: mode === 'session',
 				otp: req.body?.otp,
 			});

@@ -131,6 +131,9 @@ importers:
       '@types/cookie':
         specifier: 0.6.0
         version: 0.6.0
+      '@types/joi-phone-number':
+        specifier: 5.0.8
+        version: 5.0.8
       argon2:
         specifier: 0.41.1
         version: 0.41.1
@@ -5002,6 +5005,9 @@ packages:
 
   '@types/inquirer@9.0.7':
     resolution: {integrity: sha512-Q0zyBupO6NxGRZut/JdmqYKOnN95Eg5V8Csg3PGKkP+FnvsUZx1jAyK7fztIszxxMuoBA6E3KXWvdZVXIpx60g==}
+
+  '@types/joi-phone-number@5.0.8':
+    resolution: {integrity: sha512-QK94pyC2DbSh10JIIsRhyJ6zAyA7MNXmSCCFjMsQOfceKabJWDdll4L3NYOp3NsX3yuU0KaxbbIPMxYcBalAcA==}
 
   '@types/js-yaml@4.0.9':
     resolution: {integrity: sha512-k4MGaQl5TGo/iipqb2UDG2UwjXziSWkh0uysQelTlJpX1qGlpUZYm8PnO4DxG1qBomtJUdYJ6qR6xdIah10JLg==}
@@ -15662,6 +15668,11 @@ snapshots:
     dependencies:
       '@types/through': 0.0.33
       rxjs: 7.8.1
+
+  '@types/joi-phone-number@5.0.8':
+    dependencies:
+      '@types/node': 18.19.45
+      joi: 17.13.3
 
   '@types/js-yaml@4.0.9': {}
 
