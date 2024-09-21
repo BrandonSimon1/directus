@@ -5,6 +5,7 @@ import type { AuthDriver } from './auth/auth.js';
 import {
 	LDAPAuthDriver,
 	LocalAuthDriver,
+	TwilioAuthDriver,
 	OAuth2AuthDriver,
 	OpenIDAuthDriver,
 	SAMLAuthDriver,
@@ -81,6 +82,9 @@ function getProviderInstance(
 	switch (driver) {
 		case 'local':
 			return new LocalAuthDriver(options, config);
+
+		case 'twilio':
+			return new TwilioAuthDriver(options, config);
 
 		case 'oauth2':
 			return new OAuth2AuthDriver(options, config);
