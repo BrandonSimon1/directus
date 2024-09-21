@@ -389,6 +389,9 @@ function revert(values: Record<string, any>) {
 							<v-icon name="alternate_email" small />
 							{{ item.email }}
 						</div>
+						<div v-if="item.phone" class="phone">
+							{{ item.phone }}
+						</div>
 						<div v-if="item.location" class="location">
 							<v-icon name="place" small />
 							{{ item.location }}
@@ -527,6 +530,7 @@ function revert(values: Record<string, any>) {
 
 		.title,
 		.email,
+		.phone,
 		.location {
 			color: var(--theme--foreground-subdued);
 		}
