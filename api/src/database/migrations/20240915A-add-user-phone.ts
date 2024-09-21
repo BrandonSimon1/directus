@@ -1,5 +1,4 @@
 import type { Knex } from 'knex';
-import { getHelpers } from '../helpers/index.js';
 
 export async function up(knex: Knex): Promise<void> {
 	await knex.schema.alterTable('directus_users', (table) => {
