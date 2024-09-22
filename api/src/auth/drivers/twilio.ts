@@ -1,6 +1,6 @@
 import { useEnv } from '@directus/env';
 
-import { InvalidCredentialsError, InvalidPayloadError } from '@directus/errors';
+import { InvalidCredentialsError, InvalidPayloadError, InvalidProviderError, InvalidProviderConfigError, ServiceUnavailableError } from '@directus/errors';
 import type { Accountability } from '@directus/types';
 import { Router } from 'express';
 import { default as BaseJoi } from 'joi';
@@ -15,62 +15,138 @@ import { getIPFromReq } from '../../utils/get-ip-from-req.js';
 import { stall } from '../../utils/stall.js';
 import { AuthDriver } from '../auth.js';
 import JoiPhoneNumber from 'joi-phone-number'
-import twilio from "twilio"
+import Twilio from "twilio"
 import { getAuthProvider } from '../../auth.js';
-
-const env = useEnv()
-
-const client = twilio(env['TWILIO_ACCOUNT_SID'] as string, env['TWILIO_AUTH_TOKEN'] as string)
+import { useLogger } from '../../logger/index.js';
+import { UsersService } from '../../services/users.js';
+import emitter from '../../emitter.js';
+import getDatabase from '../../database/index.js';
 
 const Joi = BaseJoi.extend(JoiPhoneNumber);
 
 export class TwilioAuthDriver extends AuthDriver {
+	client: Twilio;
+	config: Record<string, any>;
+	usersService: UsersService;
+
+	constructor(options: AuthDriverOptions, config: Record<string, any>) {
+		super(options, config);
+
+		const logger = useLogger()
+
+		const { twilioAccountSid, twilioAuthToken, twilioService, ...additionalConfig } = config
+
+		if (!twilioAccountSid || !twilioAuthToken || !twilioService || !additionalConfig['provider']) {
+			logger.error('Invalid provider config');
+			throw new InvalidProviderConfigError({ provider: additionalConfig['provider'] });
+		}
+
+		this.client = new Twilio(twilioAccountSid, twilioAuthToken)
+		this.config = config
+		this.usersService = new UsersService({ knex: this.knex, schema: this.schema });
+	}
+
+	private async fetchUserId(phone: string): Promise<string | undefined> {
+		const user = await this.knex
+			.select('id')
+			.from('directus_users')
+			.whereRaw('?? = ?', ['phone', phone])
+			.first();
+
+		return user?.id;
+	}
 
 	async getUserID(payload: Record<string, any>): Promise<string> {
 		if (!payload['phone']) {
 			throw new InvalidCredentialsError();
 		}
 
-		const user = await this.knex
-			.select('id')
-			.from('directus_users')
-			.whereRaw('LOWER(??) = ?', ['phone', payload['phone'].toLowerCase()])
-			.first();
+		await this.verify(payload['phone'], payload['code']);
 
-		if (!user) {
-			throw new InvalidCredentialsError();
+		let userId = await this.fetchUserId(payload['phone'])
+
+		if (!userId) {
+			const { provider } = this.config
+
+			const userPayload = {
+				provider,
+				phone: payload['phone'],
+				role: this.config['defaultRoleId'],
+			};
+
+			const updatedUserPayload = await emitter.emitFilter(
+				`auth.create`,
+				userPayload,
+				{
+					phone: payload['phone'],
+					provider: this.config['provider'],
+				},
+				{ database: getDatabase(), schema: this.schema, accountability: null },
+			);
+
+			try {
+				await this.usersService.createOne(updatedUserPayload);
+			} catch (e) {
+				if (isDirectusError(e, ErrorCode.RecordNotUnique)) {
+					logger.warn(e, '[Twilio] Failed to register user. User not unique');
+					throw new InvalidProviderError();
+				}
+
+				throw e;
+			}
 		}
 
-		return user.id;
+		userId = await this.fetchUserId(payload['phone'])
+
+		return userId;
 	}
 
-	async verify(user: User, code: string): Promise<void> {
-		if (!user.phone) {
-			throw new InvalidCredentialsError();
+	async verify(phone: string, code: string): Promise<void> {
+		const logger = useLogger()
+		let verificationCheck
+		try {
+			verificationCheck = await this.client.verify.v2
+				.services(this.config.twilioService as string)
+				.verificationChecks.create({
+					code,
+					to: phone,
+				});
+		} catch (e) {
+			if (e.code === 20404) {
+				logger.warn(e, '[Twilio] Verification does not exist')
+				throw new InvalidCredentialsError();
+			} else {
+				logger.warn(e, '[Twilio] Unkown error')
+				throw new ServiceUnavailableError({
+					service: 'twilio',
+					reason: `Service returned unexpected response: ${e.message}`,
+				});
+			}
 		}
-		const verificationCheck = await client.verify.v2
-			.services(env['TWILIO_SERVICE'] as string)
-			.verificationChecks.create({
-				code,
-				to: user.phone,
-			});
 
-		if (verificationCheck.status !== 'approved') {
+		if (verificationCheck?.status !== 'approved') {
 			throw new InvalidCredentialsError();
 		}
 	}
 
 	async createVerification(payload: Record<string, any>): Promise<void> {
-		await client.verify.v2
-			.services(env['TWILIO_SERVICE'] as string)
-			.verifications.create({
-				channel: "sms",
-				to: payload['phone'],
+		try {
+			await this.client.verify.v2
+				.services(this.config.twilioService as string)
+				.verifications.create({
+					channel: "sms",
+					to: payload['phone'],
+				});
+		} catch (e) {
+			logger.warn(e, '[Twilio] Unkown error')
+			throw new ServiceUnavailableError({
+				service: 'twilio',
+				reason: `Service returned unexpected response: ${e.message}`,
 			});
+		}
 	}
 
 	override async login(user: User, payload: Record<string, any>): Promise<void> {
-		await this.verify(user, payload['code']);
 	}
 }
 
@@ -85,7 +161,7 @@ export function createTwilioAuthRouter(providerName: string): Router {
 			defaultCountry: 'US',
 			format: 'national'
 		}).required(),
-		code: Joi.string(),
+		code: Joi.string().required(),
 	}).unknown();
 
 	const verifySchema = Joi.object({
