@@ -6,6 +6,7 @@ import { Router } from 'express';
 import {
 	createLDAPAuthRouter,
 	createLocalAuthRouter,
+	createTwilioAuthRouter,
 	createOAuth2AuthRouter,
 	createOpenIDAuthRouter,
 	createSAMLAuthRouter,
@@ -36,6 +37,10 @@ for (const authProvider of authProviders) {
 	switch (authProvider.driver) {
 		case 'local':
 			authRouter = createLocalAuthRouter(authProvider.name);
+			break;
+
+		case 'twilio':
+			authRouter = createTwilioAuthRouter(authProvider.name);
 			break;
 
 		case 'oauth2':
