@@ -145,9 +145,6 @@ export class TwilioAuthDriver extends AuthDriver {
 			});
 		}
 	}
-
-	override async login(user: User, payload: Record<string, any>): Promise<void> {
-	}
 }
 
 export function createTwilioAuthRouter(providerName: string): Router {
