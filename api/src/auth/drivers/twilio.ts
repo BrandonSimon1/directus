@@ -1,6 +1,6 @@
 import { useEnv } from '@directus/env';
 
-import { InvalidCredentialsError, InvalidPayloadError, InvalidProviderError, InvalidProviderConfigError, ServiceUnavailableError } from '@directus/errors';
+import { ErrorCode, isDirectusError, InvalidCredentialsError, InvalidPayloadError, InvalidProviderError, InvalidProviderConfigError, ServiceUnavailableError } from '@directus/errors';
 import type { Accountability } from '@directus/types';
 import { Router } from 'express';
 import { default as BaseJoi } from 'joi';
@@ -9,11 +9,10 @@ import { REFRESH_COOKIE_OPTIONS, SESSION_COOKIE_OPTIONS } from '../../constants.
 import { respond } from '../../middleware/respond.js';
 import { createDefaultAccountability } from '../../permissions/utils/create-default-accountability.js';
 import { AuthenticationService } from '../../services/authentication.js';
-import type { AuthenticationMode, User } from '../../types/index.js';
+import type { AuthenticationMode } from '../../types/index.js';
 import asyncHandler from '../../utils/async-handler.js';
 import { getIPFromReq } from '../../utils/get-ip-from-req.js';
 import { stall } from '../../utils/stall.js';
-import { AuthDriver } from '../auth.js';
 import JoiPhoneNumber from 'joi-phone-number'
 import Twilio from "twilio"
 import { getAuthProvider } from '../../auth.js';
@@ -21,11 +20,13 @@ import { useLogger } from '../../logger/index.js';
 import { UsersService } from '../../services/users.js';
 import emitter from '../../emitter.js';
 import getDatabase from '../../database/index.js';
+import type { AuthDriverOptions } from '../../types/index.js';
+import { LocalAuthDriver } from './local.js';
 
 const Joi = BaseJoi.extend(JoiPhoneNumber);
 
-export class TwilioAuthDriver extends AuthDriver {
-	client: Twilio;
+export class TwilioAuthDriver extends LocalAuthDriver {
+	client: Twilio.Twilio;
 	config: Record<string, any>;
 	usersService: UsersService;
 
@@ -41,7 +42,7 @@ export class TwilioAuthDriver extends AuthDriver {
 			throw new InvalidProviderConfigError({ provider: additionalConfig['provider'] });
 		}
 
-		this.client = new Twilio(twilioAccountSid, twilioAuthToken)
+		this.client = new Twilio.Twilio(twilioAccountSid, twilioAuthToken)
 		this.config = config
 		this.usersService = new UsersService({ knex: this.knex, schema: this.schema });
 	}
@@ -56,12 +57,13 @@ export class TwilioAuthDriver extends AuthDriver {
 		return user?.id;
 	}
 
-	async getUserID(payload: Record<string, any>): Promise<string> {
+	override async getUserID(payload: Record<string, any>): Promise<string> {
+		const logger = useLogger()
 		if (!payload['phone']) {
 			throw new InvalidCredentialsError();
 		}
 
-		await this.verify(payload['phone'], payload['code']);
+		await this.verifyCode(payload['phone'], payload['code']);
 
 		let userId = await this.fetchUserId(payload['phone'])
 
@@ -98,20 +100,25 @@ export class TwilioAuthDriver extends AuthDriver {
 
 		userId = await this.fetchUserId(payload['phone'])
 
+		if (!userId) {
+			logger.warn('[Twilio] Failed to register user');
+			throw new InvalidProviderError()
+		}
+
 		return userId;
 	}
 
-	async verify(phone: string, code: string): Promise<void> {
+	async verifyCode(phone: string, code: string): Promise<void> {
 		const logger = useLogger()
 		let verificationCheck
 		try {
 			verificationCheck = await this.client.verify.v2
-				.services(this.config.twilioService as string)
+				.services(this.config['twilioService'] as string)
 				.verificationChecks.create({
 					code,
 					to: phone,
 				});
-		} catch (e) {
+		} catch (e: any) {
 			if (e.code === 20404) {
 				logger.warn(e, '[Twilio] Verification does not exist')
 				throw new InvalidCredentialsError();
@@ -130,14 +137,15 @@ export class TwilioAuthDriver extends AuthDriver {
 	}
 
 	async createVerification(payload: Record<string, any>): Promise<void> {
+		const logger = useLogger()
 		try {
 			await this.client.verify.v2
-				.services(this.config.twilioService as string)
+				.services(this.config['twilioService'] as string)
 				.verifications.create({
 					channel: "sms",
 					to: payload['phone'],
 				});
-		} catch (e) {
+		} catch (e: any) {
 			logger.warn(e, '[Twilio] Unkown error')
 			throw new ServiceUnavailableError({
 				service: 'twilio',
