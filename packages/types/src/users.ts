@@ -19,6 +19,7 @@ export type User = {
 	first_name: string | null;
 	last_name: string | null;
 	email: string | null;
+	phone: string | null;
 	password: string | null;
 	token: string | null;
 	last_access: string | null;
