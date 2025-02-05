@@ -153,6 +153,8 @@ export class TwilioAuthDriver extends LocalAuthDriver {
 			});
 		}
 	}
+
+	override async login(): Promise<void> {}
 }
 
 export function createTwilioAuthRouter(providerName: string): Router {
