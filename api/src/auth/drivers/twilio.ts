@@ -166,7 +166,7 @@ export function createTwilioAuthRouter(providerName: string): Router {
 		mode: Joi.string().valid('cookie', 'json', 'session'),
 		phone: Joi.string().phoneNumber({
 			defaultCountry: 'US',
-			format: 'national'
+			format: 'e164'
 		}).required(),
 		code: Joi.string().required(),
 	}).unknown();
@@ -174,7 +174,7 @@ export function createTwilioAuthRouter(providerName: string): Router {
 	const verifySchema = Joi.object({
 		phone: Joi.string().phoneNumber({
 			defaultCountry: 'US',
-			format: 'national'
+			format: 'e164'
 		}).required()
 	}).unknown();
 
@@ -182,11 +182,11 @@ export function createTwilioAuthRouter(providerName: string): Router {
 		'/verify',
 		asyncHandler(async (req, _, next) => {
 			const provider = getAuthProvider(providerName) as TwilioAuthDriver;
-			const { error } = verifySchema.validate(req.body);
+			const { error, value } = verifySchema.validate(req.body);
 			if (error) {
 				throw new InvalidPayloadError({ reason: error.message });
 			}
-			await provider.createVerification(req.body)
+			await provider.createVerification(value)
 			return next()
 		}),
 		respond
@@ -213,18 +213,18 @@ export function createTwilioAuthRouter(providerName: string): Router {
 				schema: req.schema,
 			});
 
-			const { error } = userLoginSchema.validate(req.body);
+			const { error, value } = userLoginSchema.validate(req.body);
 
 			if (error) {
 				await stall(STALL_TIME, timeStart);
 				throw new InvalidPayloadError({ reason: error.message });
 			}
 
-			const mode: AuthenticationMode = req.body.mode ?? 'json';
+			const mode: AuthenticationMode = value.mode ?? 'json';
 
-			const { accessToken, refreshToken, expires } = await authenticationService.login(providerName, req.body, {
+			const { accessToken, refreshToken, expires } = await authenticationService.login(providerName, value, {
 				session: mode === 'session',
-				otp: req.body?.otp,
+				otp: value?.otp,
 			});
 
 			const payload = { expires } as { expires: number; access_token?: string; refresh_token?: string };
