@@ -115,7 +115,7 @@ router.patch(
 		} else if (req.body.keys) {
 			keys = await service.updateMany(req.body.keys, req.body.data);
 		} else {
-			const sanitizedQuery = sanitizeQuery(req.body.query, req.accountability);
+			const sanitizedQuery = await sanitizeQuery(req.body.query, req.schema, req.accountability);
 			keys = await service.updateByQuery(sanitizedQuery, req.body.data);
 		}
 
@@ -175,7 +175,7 @@ router.delete(
 		} else if (req.body.keys) {
 			await service.deleteMany(req.body.keys);
 		} else {
-			const sanitizedQuery = sanitizeQuery(req.body.query, req.accountability);
+			const sanitizedQuery = await sanitizeQuery(req.body.query, req.schema, req.accountability);
 			await service.deleteByQuery(sanitizedQuery);
 		}
 
@@ -211,9 +211,7 @@ router.get(
 
 		const { outdated, mainHash } = await service.verifyHash(version['collection'], version['item'], version['hash']);
 
-		const saves = await service.getVersionSavesById(version['id']);
-
-		const current = assign({}, ...saves);
+		const current = assign({}, version['delta']);
 
 		const main = await service.getMainItem(version['collection'], version['item']);
 
@@ -236,11 +234,9 @@ router.post(
 
 		const mainItem = await service.getMainItem(version['collection'], version['item']);
 
-		await service.save(req.params['pk']!, req.body);
+		const updatedVersion = await service.save(req.params['pk']!, req.body);
 
-		const saves = await service.getVersionSavesById(req.params['pk']!);
-
-		const result = assign(mainItem, ...saves);
+		const result = assign(mainItem, updatedVersion);
 
 		res.locals['payload'] = { data: result || null };
 

@@ -1,14 +1,16 @@
 import type { Accountability, PermissionsAction } from '@directus/types';
 import type { Context } from '../types.js';
-import { fetchDynamicVariableContext } from '../utils/fetch-dynamic-variable-context.js';
+import { extractRequiredDynamicVariableContextForPermissions } from '../utils/extract-required-dynamic-variable-context.js';
+import { fetchDynamicVariableData } from '../utils/fetch-dynamic-variable-data.js';
 import { fetchRawPermissions } from '../utils/fetch-raw-permissions.js';
+import { getPermissionsForShare } from '../utils/get-permissions-for-share.js';
 import { processPermissions } from '../utils/process-permissions.js';
 
 export interface FetchPermissionsOptions {
 	action?: PermissionsAction;
 	policies: string[];
 	collections?: string[];
-	accountability?: Pick<Accountability, 'user' | 'role' | 'roles' | 'app'>;
+	accountability?: Pick<Accountability, 'user' | 'role' | 'roles' | 'app' | 'share' | 'ip'>;
 	bypassDynamicVariableProcessing?: boolean;
 }
 
@@ -19,11 +21,13 @@ export async function fetchPermissions(options: FetchPermissionsOptions, context
 	);
 
 	if (options.accountability && !options.bypassDynamicVariableProcessing) {
-		const permissionsContext = await fetchDynamicVariableContext(
+		const dynamicVariableContext = extractRequiredDynamicVariableContextForPermissions(permissions);
+
+		const permissionsContext = await fetchDynamicVariableData(
 			{
 				accountability: options.accountability,
 				policies: options.policies,
-				permissions,
+				dynamicVariableContext,
 			},
 			context,
 		);
@@ -35,7 +39,9 @@ export async function fetchPermissions(options: FetchPermissionsOptions, context
 			permissionsContext,
 		});
 
-		// TODO merge in permissions coming from the share scope
+		if (options.accountability.share && (options.action === undefined || options.action === 'read')) {
+			return await getPermissionsForShare(options.accountability, options.collections, context);
+		}
 
 		return processedPermissions;
 	}

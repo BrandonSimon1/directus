@@ -51,6 +51,9 @@ The configured options for the used display.
 `readonly` **boolean**\
 If the field is considered readonly in the Data Studio.
 
+`required` **boolean**\
+If the field is considered required in the Data Studio.
+
 `hidden` **boolean**\
 If the field is hidden from the edit page in the Data Studio.
 
@@ -94,6 +97,12 @@ Precision for integer/float/decimal type fields.
 `numeric_scale` **integer**\
 Scale for integer/float/decimal type fields.
 
+`is_generated` **boolean**\
+Whether or not it is a generated column on the part of the database.
+
+`generation_expression` **string**\
+The database level expression used for computing the column, in case it is a generated column.
+
 `is_nullable` **boolean**\
 Whether or not the column is nullable. This is what is used as the "required" state in Directus.
 
@@ -130,6 +139,7 @@ Comment as stored in the database.
 		"display": null,
 		"display_options": null,
 		"readonly": true,
+		"required": true,
 		"hidden": true,
 		"sort": 1,
 		"width": "full",
@@ -144,6 +154,8 @@ Comment as stored in the database.
 		"max_length": null,
 		"numeric_precision": 32,
 		"numeric_scale": 0,
+		"is_generated": false,
+		"generation_expression": null,
 		"is_nullable": false,
 		"is_unique": false,
 		"is_indexed": true,

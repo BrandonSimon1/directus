@@ -1,3 +1,4 @@
+import { DEFAULT_CHUNK_SIZE } from '@directus/constants';
 import { resolve } from 'node:path';
 import { cwd } from 'node:process';
 
@@ -9,6 +10,7 @@ export const DEFAULTS = {
 	PUBLIC_URL: '/',
 	MAX_PAYLOAD_SIZE: '1mb',
 	MAX_RELATIONAL_DEPTH: 10,
+	QUERYSTRING_MAX_PARSE_DEPTH: 10,
 	QUERY_LIMIT_DEFAULT: 100,
 	MAX_BATCH_MUTATION: Infinity,
 	ROBOTS_TXT: 'User-agent: *\nDisallow: /',
@@ -74,6 +76,7 @@ export const DEFAULTS = {
 	CACHE_SCHEMA: true,
 	CACHE_SCHEMA_MAX_ITERATIONS: 100,
 	CACHE_SCHEMA_SYNC_TIMEOUT: 10000,
+	CACHE_SCHEMA_FREEZE_ENABLED: false,
 	CACHE_VALUE_MAX_SIZE: false,
 	CACHE_SKIP_ALLOWED: false,
 
@@ -126,11 +129,19 @@ export const DEFAULTS = {
 	FILE_METADATA_ALLOW_LIST: 'ifd0.Make,ifd0.Model,exif.FNumber,exif.ExposureTime,exif.FocalLength,exif.ISOSpeedRatings',
 
 	TUS_ENABLED: false,
-	TUS_CHUNK_SIZE: '10mb',
+	TUS_CHUNK_SIZE: DEFAULT_CHUNK_SIZE, // 8mb
 	TUS_UPLOAD_EXPIRATION: '10m',
 	TUS_CLEANUP_SCHEDULE: '0 * * * *', // every hour
 
+	RETENTION_ENABLED: false,
+	RETENTION_BATCH: 500,
+	RETENTION_SCHEDULE: '0 0 * * *', // once a day at 12AM
+	ACTIVITY_RETENTION: '90d',
+	REVISIONS_RETENTION: '90d',
+	FLOW_LOGS_RETENTION: '90d',
+
 	GRAPHQL_INTROSPECTION: true,
+	GRAPHQL_SCHEMA_GENERATION_MAX_CONCURRENT: 5,
 	GRAPHQL_QUERY_TOKEN_LIMIT: 5000,
 
 	WEBSOCKETS_ENABLED: false,
@@ -158,6 +169,10 @@ export const DEFAULTS = {
 	PRESSURE_LIMITER_MAX_MEMORY_RSS: false,
 	PRESSURE_LIMITER_MAX_MEMORY_HEAP_USED: false,
 	PRESSURE_LIMITER_RETRY_AFTER: false,
+
+	METRICS_ENABLED: false,
+	METRICS_SERVICES: 'database,cache,redis,storage',
+	METRICS_SCHEDULE: '*/1 * * * *',
 
 	FILES_MIME_TYPE_ALLOW_LIST: '*/*',
 } as const;

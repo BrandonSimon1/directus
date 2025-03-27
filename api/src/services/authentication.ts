@@ -1,5 +1,3 @@
-import { fetchRolesTree } from '../permissions/lib/fetch-roles-tree.js';
-import { fetchGlobalAccess } from '../permissions/modules/fetch-global-access/fetch-global-access.js';
 import { Action } from '@directus/constants';
 import { useEnv } from '@directus/env';
 import {
@@ -12,11 +10,14 @@ import type { Accountability, SchemaOverview } from '@directus/types';
 import jwt from 'jsonwebtoken';
 import type { Knex } from 'knex';
 import { clone, cloneDeep } from 'lodash-es';
+import type { StringValue } from 'ms';
 import { performance } from 'perf_hooks';
 import { getAuthProvider } from '../auth.js';
 import { DEFAULT_AUTH_PROVIDER } from '../constants.js';
 import getDatabase from '../database/index.js';
 import emitter from '../emitter.js';
+import { fetchRolesTree } from '../permissions/lib/fetch-roles-tree.js';
+import { fetchGlobalAccess } from '../permissions/modules/fetch-global-access/fetch-global-access.js';
 import { RateLimiterRes, createRateLimiter } from '../rate-limiter.js';
 import type { AbstractServiceOptions, DirectusTokenPayload, LoginResult, Session, User } from '../types/index.js';
 import { getMilliseconds } from '../utils/get-milliseconds.js';
@@ -222,7 +223,7 @@ export class AuthenticationService {
 			},
 		);
 
-		const TTL = env[options?.session ? 'SESSION_COOKIE_TTL' : 'ACCESS_TOKEN_TTL'] as string;
+		const TTL = env[options?.session ? 'SESSION_COOKIE_TTL' : 'ACCESS_TOKEN_TTL'] as StringValue | number;
 
 		const accessToken = jwt.sign(customClaims, getSecret(), {
 			expiresIn: TTL,
@@ -295,13 +296,8 @@ export class AuthenticationService {
 				user_auth_data: 'u.auth_data',
 				user_role: 'u.role',
 				share_id: 'd.id',
-				share_item: 'd.item',
-				share_role: 'd.role',
-				share_collection: 'd.collection',
 				share_start: 'd.date_start',
 				share_end: 'd.date_end',
-				share_times_used: 'd.times_used',
-				share_max_uses: 'd.max_uses',
 			})
 			.from('directus_sessions AS s')
 			.leftJoin('directus_users AS u', 's.user', 'u.id')
@@ -385,12 +381,7 @@ export class AuthenticationService {
 
 		if (record.share_id) {
 			tokenPayload.share = record.share_id;
-			tokenPayload.role = record.share_role;
-
-			tokenPayload.share_scope = {
-				collection: record.share_collection,
-				item: record.share_item,
-			};
+			tokenPayload.role = null;
 
 			tokenPayload.app_access = false;
 			tokenPayload.admin_access = false;
@@ -414,7 +405,7 @@ export class AuthenticationService {
 			},
 		);
 
-		const TTL = env[options?.session ? 'SESSION_COOKIE_TTL' : 'ACCESS_TOKEN_TTL'] as string;
+		const TTL = env[options?.session ? 'SESSION_COOKIE_TTL' : 'ACCESS_TOKEN_TTL'] as StringValue | number;
 
 		const accessToken = jwt.sign(customClaims, getSecret(), {
 			expiresIn: TTL,

@@ -37,7 +37,13 @@ function cancel() {
 </script>
 
 <template>
-	<v-dialog :model-value="modelValue" persistent @update:model-value="$emit('update:modelValue', $event)" @esc="cancel">
+	<v-dialog
+		:model-value="modelValue"
+		persistent
+		keep-behind
+		@update:model-value="$emit('update:modelValue', $event)"
+		@esc="cancel"
+	>
 		<template #activator="slotBinding">
 			<slot name="activator" v-bind="slotBinding" />
 		</template>

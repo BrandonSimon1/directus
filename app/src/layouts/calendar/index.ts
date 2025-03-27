@@ -47,7 +47,7 @@ export default defineLayout<LayoutOptions>({
 		const selection = useSync(props, 'selection', emit);
 		const layoutOptions = useSync(props, 'layoutOptions', emit);
 
-		const { collection, search, filterSystem } = toRefs(props);
+		const { collection, search, filterSystem, selectMode, showSelect } = toRefs(props);
 
 		const { primaryKeyField, fields: fieldsInCollection } = useCollection(collection);
 
@@ -111,7 +111,7 @@ export default defineLayout<LayoutOptions>({
 			return fields;
 		});
 
-		const limit = info.queryLimit?.max && info.queryLimit.max !== -1 ? info.queryLimit.max : 10000;
+		const limit = computed(() => (info.queryLimit?.max && info.queryLimit.max !== -1 ? info.queryLimit.max : 1000));
 
 		const {
 			items,
@@ -127,7 +127,7 @@ export default defineLayout<LayoutOptions>({
 		} = useItems(collection, {
 			sort: computed(() => [primaryKeyField.value?.field || '']),
 			page: ref(1),
-			limit: ref(limit),
+			limit,
 			fields: queryFields,
 			filter: filterWithCalendarView,
 			search: search,
@@ -139,6 +139,8 @@ export default defineLayout<LayoutOptions>({
 		);
 
 		const fullFullCalendarOptions = computed<FullCalendarOptions>(() => {
+			const displayEventTime = startDateFieldInfo.value?.type !== 'date';
+
 			const options: FullCalendarOptions = {
 				editable: true,
 				eventStartEditable: true,
@@ -157,12 +159,15 @@ export default defineLayout<LayoutOptions>({
 				},
 				views: {
 					dayGridMonth: {
+						displayEventTime,
 						eventTimeFormat: {
 							hour: 'numeric',
 							minute: '2-digit',
 							meridiem: 'narrow',
 						},
 					},
+					week: { displayEventTime },
+					day: { displayEventTime },
 				},
 				events: events.value,
 				initialDate: viewInfo.value?.startDateStr ?? formatISO(new Date()),
@@ -241,16 +246,23 @@ export default defineLayout<LayoutOptions>({
 				totalItems: totalCount.value,
 				currentItems: itemCount.value,
 				isFiltered: !!props.filterUser,
+				i18n: { t, n },
 			});
 		});
+
+		const isFiltered = computed(() => !!props.filterUser || !!props.search);
 
 		return {
 			items,
 			loading,
 			error,
+			selectMode,
+			showSelect,
 			totalPages,
 			itemCount,
 			totalCount,
+			isFiltered,
+			limit,
 			changeManualSort,
 			getItems,
 			filterWithCalendarView,

@@ -10,8 +10,8 @@ export type Accountability = {
 	admin: boolean;
 	app: boolean;
 	share?: string;
-	share_scope?: ShareScope;
 	ip: string | null;
 	userAgent?: string;
 	origin?: string;
+	session?: string;
 };

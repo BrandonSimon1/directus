@@ -1,7 +1,8 @@
 import { useEnv } from '@directus/env';
-import type { Filter, Permission, Query, SchemaOverview } from '@directus/types';
+import type { Filter, Permission, Query } from '@directus/types';
 import type { Knex } from 'knex';
 import { cloneDeep } from 'lodash-es';
+import type { Context } from '../../../permissions/types.js';
 import type { FieldNode, FunctionFieldNode, O2MNode } from '../../../types/ast.js';
 import type { ColumnSortRecord } from '../../../utils/apply-query.js';
 import applyQuery, { applyLimit, applySort, generateAlias } from '../../../utils/apply-query.js';
@@ -15,19 +16,23 @@ import { getNodeAlias } from '../utils/get-field-alias.js';
 import { getInnerQueryColumnPreProcessor } from '../utils/get-inner-query-column-pre-processor.js';
 import { withPreprocessBindings } from '../utils/with-preprocess-bindings.js';
 
+export type DBQueryOptions = {
+	table: string;
+	fieldNodes: (FieldNode | FunctionFieldNode)[];
+	o2mNodes: O2MNode[];
+	query: Query;
+	cases: Filter[];
+	permissions: Permission[];
+	permissionsOnly?: boolean;
+};
+
 export function getDBQuery(
-	schema: SchemaOverview,
-	knex: Knex,
-	table: string,
-	fieldNodes: (FieldNode | FunctionFieldNode)[],
-	o2mNodes: O2MNode[],
-	query: Query,
-	cases: Filter[],
-	permissions: Permission[],
+	{ table, fieldNodes, o2mNodes, query, cases, permissions, permissionsOnly }: DBQueryOptions,
+	{ knex, schema }: Context,
 ): Knex.QueryBuilder {
 	const aliasMap: AliasMap = Object.create(null);
 	const env = useEnv();
-	const preProcess = getColumnPreprocessor(knex, schema, table, cases, permissions, aliasMap);
+	const preProcess = getColumnPreprocessor(knex, schema, table, cases, permissions, aliasMap, permissionsOnly);
 	const queryCopy = cloneDeep(query);
 	const helpers = getHelpers(knex);
 
@@ -41,19 +46,42 @@ export function getDBQuery(
 	if (queryCopy.aggregate || queryCopy.group) {
 		const flatQuery = knex.from(table);
 
+		const fieldNodeMap = Object.fromEntries(
+			fieldNodes.map((node, index): [string, [FieldNode | FunctionFieldNode, number]] => [
+				node.fieldKey,
+				[node, index],
+			]),
+		);
+
+		const groupFieldNodes = queryCopy.group?.map((field) => fieldNodeMap[field]![0]) ?? [];
+
 		// Map the group fields to their respective field nodes
-		const groupWhenCases = hasCaseWhen
-			? queryCopy.group?.map((field) => fieldNodes.find(({ fieldKey }) => fieldKey === field)?.whenCase ?? [])
-			: undefined;
+		const groupWhenCases = hasCaseWhen ? groupFieldNodes.map((node) => node.whenCase ?? []) : undefined;
+
+		// Determine the number of aggregates that will be selected
+		const aggregateCount = Object.entries(queryCopy.aggregate ?? {}).reduce(
+			(acc, [_, fields]) => acc + fields.length,
+			0,
+		);
+
+		// Map the group field to their respective select column positions (1 based, offset by the number of aggregate terms that are applied in applyQuery)
+		// The positions need to be offset by the number of aggregate terms, since the aggregate terms are selected first
+		const groupColumnPositions = queryCopy.group?.map((field) => fieldNodeMap[field]![1] + 1 + aggregateCount) ?? [];
 
 		const dbQuery = applyQuery(knex, table, flatQuery, queryCopy, schema, cases, permissions, {
 			aliasMap,
 			groupWhenCases,
+			groupColumnPositions,
 		}).query;
 
 		flatQuery.select(fieldNodes.map((node) => preProcess(node)));
 
-		withPreprocessBindings(knex, dbQuery);
+		if (
+			helpers.capabilities.supportsDeduplicationOfParameters() &&
+			!helpers.capabilities.supportsColumnPositionInGroupBy()
+		) {
+			withPreprocessBindings(knex, dbQuery);
+		}
 
 		return dbQuery;
 	}
@@ -250,7 +278,11 @@ export function getDBQuery(
 		// group by without influencing the result.
 
 		// This inclusion depends on the DB vendor, as such it is handled in a dialect specific helper.
-		helpers.schema.addInnerSortFieldsToGroupBy(groupByFields, innerQuerySortRecords, hasMultiRelationalSort ?? false);
+		helpers.schema.addInnerSortFieldsToGroupBy(
+			groupByFields,
+			innerQuerySortRecords,
+			(hasMultiRelationalSort || sortRecords?.some(({ column }) => column.includes('.'))) ?? false,
+		);
 
 		dbQuery.groupBy(groupByFields);
 	}

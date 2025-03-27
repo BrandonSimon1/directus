@@ -1,7 +1,9 @@
 import type { KNEX_TYPES } from '@directus/constants';
-import type { Field, Relation, Type } from '@directus/types';
+import type { Column } from '@directus/schema';
+import type { Field, RawField, Relation, Type } from '@directus/types';
 import type { Knex } from 'knex';
 import type { DatabaseClient } from '../../../types/index.js';
+import { getDefaultIndexName } from '../../../utils/get-default-index-name.js';
 import { getDatabaseClient } from '../../index.js';
 import { DatabaseHelper } from '../types.js';
 
@@ -30,6 +32,10 @@ export abstract class SchemaHelper extends DatabaseHelper {
 				builder.dropNullable(column);
 			}
 		});
+	}
+
+	generateIndexName(type: 'unique' | 'foreign' | 'index', collection: string, fields: string | string[]): string {
+		return getDefaultIndexName(type, collection, fields);
 	}
 
 	async changeToType(
@@ -106,6 +112,16 @@ export abstract class SchemaHelper extends DatabaseHelper {
 		return;
 	}
 
+	setNullable(column: Knex.ColumnBuilder, field: RawField | Field, existing: Column | null): void {
+		const isNullable = field.schema?.is_nullable ?? existing?.is_nullable ?? true;
+
+		if (isNullable) {
+			column.nullable();
+		} else {
+			column.notNullable();
+		}
+	}
+
 	processFieldType(field: Field): Type {
 		return field.type;
 	}
@@ -157,14 +173,18 @@ export abstract class SchemaHelper extends DatabaseHelper {
 		return null;
 	}
 
-	preprocessBindings(queryParams: Sql): Sql {
+	prepQueryParams(queryParams: Sql): Sql {
 		return queryParams;
+	}
+
+	prepBindings(bindings: Knex.Value[]): any {
+		return bindings;
 	}
 
 	addInnerSortFieldsToGroupBy(
 		_groupByFields: (string | Knex.Raw)[],
 		_sortRecords: SortRecord[],
-		_hasMultiRelationalSort: boolean,
+		_hasRelationalSort: boolean,
 	): void {
 		// no-op by default
 	}

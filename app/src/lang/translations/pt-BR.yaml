@@ -941,6 +941,7 @@ run_flow_on_current_edited_confirm: Este item pode ser alterado por este fluxo, 
 run_flow_on_selected: Selecione Um ou Mais Itens Primeiro | Execute o fluxo em 1 Item Selecionado | Execute o fluxo em {n} Itens Selecionados
 run_flow: Executar Fluxo
 run_flow_success: Fluxo "{flow}" executado com sucesso
+trigger_flow_success: O fluxo “{flow}” foi acionado com sucesso. Ele será executado em segundo plano
 field_name_placeholder: Inserir nome do campo...
 field_key_placeholder: Inserir a chave do campo...
 trigger: Acionar
@@ -1226,6 +1227,7 @@ directus_collection:
   directus_access: Anexos de políticas
   directus_activity: Histórico de responsabilidade para todos os eventos
   directus_collections: Configurações e metadados adicionais da coleção
+  directus_comments: Comentários para os itens
   directus_dashboards: Painéis dentro do módulo Insights
   directus_fields: Configurações e metadados adicionais do campo
   directus_files: Metadados de todos os arquivos gerenciados
@@ -1842,6 +1844,8 @@ interfaces:
     description: Selecione ou envie uma imagem
     crop: Cortar para Caber
     crop_label: Cortar a imagem conforme necessário
+    letterbox: Faixa preta
+    letterbox_label: Adicionar preenchimento à pré-visualização da imagem
   system-interface:
     interface: Interface
     description: Selecione uma interface existente
@@ -2422,7 +2426,6 @@ operations:
     name: Enviar E-mail
     description: Enviar um e-mail para uma ou mais pessoas
     to: Para
-    to_placeholder: Adicione endereços de e-mail e pressione Enter...
     body: Corpo
     template: Template
     data: Dados

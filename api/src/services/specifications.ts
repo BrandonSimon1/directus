@@ -84,7 +84,7 @@ class OASSpecsService implements SpecificationSubService {
 		}
 
 		const tags = await this.generateTags(schemaForSpec);
-		const paths = await this.generatePaths(permissions, tags);
+		const paths = await this.generatePaths(schemaForSpec, permissions, tags);
 		const components = await this.generateComponents(schemaForSpec, tags);
 
 		const isDefaultPublicUrl = env['PUBLIC_URL'] === '/';
@@ -159,7 +159,11 @@ class OASSpecsService implements SpecificationSubService {
 		return tags.filter((tag) => tag.name !== 'Items');
 	}
 
-	private async generatePaths(permissions: Permission[], tags: OpenAPIObject['tags']): Promise<OpenAPIObject['paths']> {
+	private async generatePaths(
+		schema: SchemaOverview,
+		permissions: Permission[],
+		tags: OpenAPIObject['tags'],
+	): Promise<OpenAPIObject['paths']> {
 		const paths: OpenAPIObject['paths'] = {};
 
 		if (!tags) return paths;
@@ -255,11 +259,16 @@ class OASSpecsService implements SpecificationSubService {
 															'application/json': {
 																schema: {
 																	properties: {
-																		data: {
-																			items: {
-																				$ref: `#/components/schemas/${tag.name}`,
-																			},
-																		},
+																		data: schema.collections[collection]?.singleton
+																			? {
+																					$ref: `#/components/schemas/${tag.name}`,
+																			  }
+																			: {
+																					type: 'array',
+																					items: {
+																						$ref: `#/components/schemas/${tag.name}`,
+																					},
+																			  },
 																	},
 																},
 															},
@@ -388,8 +397,22 @@ class OASSpecsService implements SpecificationSubService {
 					'x-collection': collection.collection,
 				};
 
+				// Track required fields
+				const requiredFields: string[] = [];
+
 				for (const field of fieldsInCollection) {
-					schemaComponent.properties![field.field] = this.generateField(schema, collection.collection, field, tags);
+					const fieldSchema = this.generateField(schema, collection.collection, field, tags);
+					schemaComponent.properties![field.field] = fieldSchema;
+
+					// Check if field is required
+					if (field.nullable === false && field.defaultValue === null && field.generated === false) {
+						requiredFields.push(field.field);
+					}
+				}
+
+				// Only add required if there are actually required fields
+				if (requiredFields.length > 0) {
+					schemaComponent.required = requiredFields;
 				}
 
 				components.schemas[tag.name] = schemaComponent;

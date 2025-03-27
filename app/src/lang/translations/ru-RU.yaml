@@ -28,7 +28,7 @@ method: Метод
 published: Опубликовано
 draft: Черновик
 archived: Архивировано
-marketplace: Магазин
+marketplace: Магазин расширений
 extensions: Расширения
 modules: Модули
 module_bar: Панель модулей
@@ -67,7 +67,7 @@ extension_panel: Панель
 extension_theme: Тема
 extension_hook: Хук
 extension_endpoint: Эндпоинт
-extension_operation: Действие
+extension_operation: Операция
 extension_bundle: Набор
 extension_interfaces: Интерфейсы
 extension_displays: Отображения
@@ -79,7 +79,7 @@ extension_hooks: Хуки
 extension_endpoints: Эндпоинты
 extension_operations: Операции
 extension_bundles: Пакеты
-extension_missing: Пропавшее
+extension_missing: Отсутствует
 extension_reload_required: Требуется перезагрузка страницы
 extension_reload_required_copy: Перезагрузка страницы необходима, чтобы увидеть изменения после включения или отключения расширений приложений.
 extension_reload_now: Перезагрузить сейчас
@@ -171,12 +171,12 @@ promote_version_preview: Предпросмотр
 outdated_notice: >-
   Главный пункт был обновлен с момента создания этой версии. Пожалуйста, ознакомьтесь со всеми значениями полей ниже, и подтвердите, какая версия должна быть использована при продвижении этой версии в основной элемент.
 promote_notice: >-
-  .
+  Пожалуйста, ознакомьтесь со всеми значениями полей ниже, и подтвердите, какая версия должна быть использована при продвижении этой версии в основной элемент.
 delete_version: Удалить версию
 delete_version_copy: >-
   Вы уверены, что хотите удалить версию «{version}»? Это действие нельзя отменить.
 delete_on_promote_copy: >-
-  Вы хотите удалить или сохранить версию "{version}" после продвижения?
+  Вы хотите удалить или сохранить версию «{version}» после продвижения?
 reset_bookmark: Сбросить закладку
 update_bookmark: Обновить закладку
 delete_bookmark: Удалить закладку
@@ -341,12 +341,12 @@ uuid: UUID
 hash: Хэш
 geometry:
   All: Геометрия (все)
-  Point: Точка
-  LineString: Линейная строка
-  Polygon: Многоугольник
-  MultiPoint: Многоточечный
+  Point: Point
+  LineString: LineString
+  Polygon: Polygon
+  MultiPoint: MultiPoint
   MultiLineString: Строковый Многострочный блок
-  MultiPolygon: Мультиполигон
+  MultiPolygon: MultiPolygon
 theme_auto: Автоматически (в зависимости от системы)
 theme_light: Светлая тема
 theme_dark: Тёмная тема
@@ -518,6 +518,7 @@ date-fns_time_24hour: 'HH:mm:ss'
 date-fns_time_no_seconds_24hour: 'HH:mm'
 date-fns_date_short: 'd MMM u'
 date-fns_time_short: 'HH:mm'
+date-fns_time_short_seconds: 'h:mm:ssa'
 date-fns_date_short_no_year: d MMM
 minutes: Минут
 hours: Часов
@@ -580,7 +581,7 @@ download_file: Скачать файл
 open_file_in_tab: Открыть файл в новой вкладке
 start_export: Начать экспорт
 not_available_for_local_downloads: Недоступно для локальных скачиваний
-exporting_all_items_in_collection: Экспортирование всех {total} элементов в {collection}.
+exporting_all_items_in_collection: Экспорт всех элементов ({total}) внутри {collection}.
 exporting_limited_items_in_collection: '{count} из {total} позиций в пределах {collection} будет экспортировано.'
 exporting_no_items_to_export: Нет элементов для экспорта. Настройте экспортируемую конфигурацию и/или добавьте элементы в коллекцию.
 exporting_download_hint: После создания {format} файл будет загружен на ваше устройство.
@@ -845,12 +846,12 @@ operators:
   icontains: Содержит (без учета регистра)
   starts_with: Начинается с
   nstarts_with: Не начинается с
-  istarts_with: Начинается с (без чувствительности к регистру)
-  nistarts_with: Не начинается с (без чувствительности к регистру)
+  istarts_with: Начинается с (без учета регистра)
+  nistarts_with: Не начинается с (без учета регистра)
   ends_with: Оканчивается на
   nends_with: Не оканчивается на
-  iends_with: Заканчивается на (без чувствительности к регистру)
-  niends_with: Не заканчивается на (без чувствительности к регистру)
+  iends_with: Заканчивается на (без учета регистра)
+  niends_with: Не заканчивается на (без учета регистра)
   between: Между
   nbetween: Не между
   empty: Пустой
@@ -941,6 +942,7 @@ run_flow_on_current_edited_confirm: Этот элемент может быть 
 run_flow_on_selected: Сначала выберите один или несколько элементов | Запустить процесс с выбранным элементом | Запустить процесс с {n} выбранными элементами
 run_flow: Запуск потока
 run_flow_success: Процесс «{flow}» успешно завершён
+trigger_flow_success: Процесс "{flow}" успешно запущен. Он будет работать в фоновом режиме
 field_name_placeholder: Введите имя поля...
 field_key_placeholder: Введите ключ поля...
 trigger: Триггер
@@ -1226,6 +1228,7 @@ directus_collection:
   directus_access: Вложения политики
   directus_activity: Журналы отчётности по всем событиям
   directus_collections: Дополнительные настройки коллекции и метаданные
+  directus_comments: Комментарии
   directus_dashboards: Панели инструментов в модуле Аналитика
   directus_fields: Дополнительные настройки полей и метаданные
   directus_files: Метаданные для всех управляемых файлов
@@ -1842,6 +1845,8 @@ interfaces:
     description: Выберите или загрузите изображение
     crop: Обрезать по размеру
     crop_label: Обрезать изображение при необходимости
+    letterbox: Почтовый ящик
+    letterbox_label: Добавить отступ для пред просмотра изображения
   system-interface:
     interface: Интерфейс
     description: Выберите существующий интерфейс
@@ -2279,6 +2284,7 @@ show_legend: Показать легенду
 right: Справа
 left: Слева
 donut: Кольцевая диаграмма
+gap: Разрыв
 panels:
   metric:
     name: Метрика
@@ -2294,6 +2300,7 @@ panels:
     value_field: Поле значения
     fill_type: Тип заполнения
     curve_type: Тип кривой
+    missing_data: Отсутствуют данные
   label:
     name: Описание
     description: Показать немного текста
@@ -2422,10 +2429,16 @@ operations:
     name: Отправить эл. письмо
     description: Отправить письмо одному или нескольким людям
     to: Кому
-    to_placeholder: Добавьте адреса эл. почты и нажмите Enter...
+    to_placeholder: Добавьте адреса электронной почты и нажмите Enter...
     body: Тело
     template: Шаблон
     data: Данные
+    cc: Копия
+    cc_placeholder: Добавьте адреса электронной почты для копий и нажмите Enter...
+    bcc: Скрытая копия
+    bcc_placeholder: Добавьте адреса электронной почты для скрытых копий и нажмите Enter...
+    reply_to: Ответить
+    reply_to_placeholder: Добавьте адреса электронной почты для ответа и нажмите Enter...
   notification:
     name: Отправить уведомление
     description: Отправить уведомление одному или нескольким пользователям

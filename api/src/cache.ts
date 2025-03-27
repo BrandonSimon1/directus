@@ -1,17 +1,17 @@
 import { useEnv } from '@directus/env';
 import type { SchemaOverview } from '@directus/types';
-import type { Options } from 'keyv';
-import Keyv from 'keyv';
+import Keyv, { type KeyvOptions } from 'keyv';
 import { useBus } from './bus/index.js';
 import { useLogger } from './logger/index.js';
+import { clearCache as clearPermissionCache } from './permissions/cache.js';
 import { redisConfigAvailable } from './redis/index.js';
 import { compress, decompress } from './utils/compress.js';
 import { getConfigFromEnv } from './utils/get-config-from-env.js';
 import { getMilliseconds } from './utils/get-milliseconds.js';
 import { validateEnv } from './utils/validate-env.js';
-import { clearCache as clearPermissionCache } from './permissions/cache.js';
 
 import { createRequire } from 'node:module';
+import { freezeSchema, unfreezeSchema } from './utils/freeze-schema.js';
 
 const logger = useLogger();
 const env = useEnv();
@@ -20,9 +20,11 @@ const require = createRequire(import.meta.url);
 
 let cache: Keyv | null = null;
 let systemCache: Keyv | null = null;
-let localSchemaCache: Keyv | null = null;
 let lockCache: Keyv | null = null;
 let messengerSubscribed = false;
+
+let localSchemaCache: Keyv | null = null;
+let memorySchemaCache: Readonly<SchemaOverview> | null = null;
 
 type Store = 'memory' | 'redis';
 
@@ -45,6 +47,7 @@ if (redisConfigAvailable() && !messengerSubscribed) {
 		}
 
 		await localSchemaCache?.clear();
+		memorySchemaCache = null;
 	});
 }
 
@@ -98,6 +101,7 @@ export async function clearSystemCache(opts?: {
 	}
 
 	await localSchemaCache.clear();
+	memorySchemaCache = null;
 
 	// Since a lot of cached permission function rely on the schema it needs to be cleared as well
 	await clearPermissionCache();
@@ -119,16 +123,22 @@ export async function getSystemCache(key: string): Promise<Record<string, any>> 
 	return await getCacheValue(systemCache, key);
 }
 
-export async function setLocalSchemaCache(schema: SchemaOverview): Promise<void> {
-	const { localSchemaCache } = getCache();
-
-	await localSchemaCache.set('schema', schema);
+export function setMemorySchemaCache(schema: SchemaOverview) {
+	if (Object.isFrozen(schema)) {
+		memorySchemaCache = schema;
+	} else {
+		memorySchemaCache = freezeSchema(schema);
+	}
 }
 
-export async function getLocalSchemaCache(): Promise<SchemaOverview | undefined> {
-	const { localSchemaCache } = getCache();
+export function getMemorySchemaCache(): Readonly<SchemaOverview> | undefined {
+	if (env['CACHE_SCHEMA_FREEZE_ENABLED']) {
+		return memorySchemaCache ?? undefined;
+	} else if (memorySchemaCache) {
+		return unfreezeSchema(memorySchemaCache);
+	}
 
-	return await localSchemaCache.get('schema');
+	return undefined;
 }
 
 export async function setCacheValue(
@@ -158,14 +168,14 @@ function getKeyvInstance(store: Store, ttl: number | undefined, namespaceSuffix?
 	}
 }
 
-function getConfig(store: Store = 'memory', ttl: number | undefined, namespaceSuffix = ''): Options<any> {
-	const config: Options<any> = {
+function getConfig(store: Store = 'memory', ttl: number | undefined, namespaceSuffix = ''): KeyvOptions {
+	const config: KeyvOptions = {
 		namespace: `${env['CACHE_NAMESPACE']}${namespaceSuffix}`,
-		ttl,
+		...(ttl && { ttl }),
 	};
 
 	if (store === 'redis') {
-		const KeyvRedis = require('@keyv/redis');
+		const { default: KeyvRedis } = require('@keyv/redis');
 		config.store = new KeyvRedis(env['REDIS'] || getConfigFromEnv('REDIS'), { useRedisSets: false });
 	}
 

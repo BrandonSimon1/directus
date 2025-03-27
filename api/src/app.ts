@@ -11,11 +11,12 @@ import { createRequire } from 'node:module';
 import path from 'path';
 import qs from 'qs';
 import { registerAuthProviders } from './auth.js';
-import activityRouter from './controllers/activity.js';
 import accessRouter from './controllers/access.js';
+import activityRouter from './controllers/activity.js';
 import assetsRouter from './controllers/assets.js';
 import authRouter from './controllers/auth.js';
 import collectionsRouter from './controllers/collections.js';
+import commentsRouter from './controllers/comments.js';
 import dashboardsRouter from './controllers/dashboards.js';
 import extensionsRouter from './controllers/extensions.js';
 import fieldsRouter from './controllers/fields.js';
@@ -24,6 +25,7 @@ import flowsRouter from './controllers/flows.js';
 import foldersRouter from './controllers/folders.js';
 import graphqlRouter from './controllers/graphql.js';
 import itemsRouter from './controllers/items.js';
+import metricsRouter from './controllers/metrics.js';
 import notFoundHandler from './controllers/not-found.js';
 import notificationsRouter from './controllers/notifications.js';
 import operationsRouter from './controllers/operations.js';
@@ -39,7 +41,7 @@ import serverRouter from './controllers/server.js';
 import settingsRouter from './controllers/settings.js';
 import sharesRouter from './controllers/shares.js';
 import translationsRouter from './controllers/translations.js';
-import { default as tusRouter, scheduleTusCleanup } from './controllers/tus.js';
+import tusRouter from './controllers/tus.js';
 import usersRouter from './controllers/users.js';
 import utilsRouter from './controllers/utils.js';
 import versionsRouter from './controllers/versions.js';
@@ -63,7 +65,10 @@ import rateLimiterGlobal from './middleware/rate-limiter-global.js';
 import rateLimiter from './middleware/rate-limiter-ip.js';
 import sanitizeQuery from './middleware/sanitize-query.js';
 import schema from './middleware/schema.js';
-import { initTelemetry } from './telemetry/index.js';
+import metricsSchedule from './schedules/metrics.js';
+import retentionSchedule from './schedules/retention.js';
+import telemetrySchedule from './schedules/telemetry.js';
+import tusSchedule from './schedules/tus.js';
 import { getConfigFromEnv } from './utils/get-config-from-env.js';
 import { Url } from './utils/url.js';
 import { validateStorage } from './utils/validate-storage.js';
@@ -111,7 +116,7 @@ export default async function createApp(): Promise<express.Application> {
 
 	app.disable('x-powered-by');
 	app.set('trust proxy', env['IP_TRUST_PROXY']);
-	app.set('query parser', (str: string) => qs.parse(str, { depth: 10 }));
+	app.set('query parser', (str: string) => qs.parse(str, { depth: Number(env['QUERYSTRING_MAX_PARSE_DEPTH']) }));
 
 	if (env['PRESSURE_LIMITER_ENABLED']) {
 		const sampleInterval = Number(env['PRESSURE_LIMITER_SAMPLE_INTERVAL']);
@@ -167,7 +172,7 @@ export default async function createApp(): Promise<express.Application> {
 	);
 
 	if (env['HSTS_ENABLED']) {
-		app.use(helmet.hsts(getConfigFromEnv('HSTS_', ['HSTS_ENABLED'])));
+		app.use(helmet.hsts(getConfigFromEnv('HSTS_', { omitPrefix: 'HSTS_ENABLED' })));
 	}
 
 	await emitter.emitInit('app.before', { app });
@@ -260,11 +265,11 @@ export default async function createApp(): Promise<express.Application> {
 
 	app.use(authenticate);
 
+	app.use(schema);
+
 	app.use(sanitizeQuery);
 
 	app.use(cache);
-
-	app.use(schema);
 
 	await emitter.emitInit('middlewares.after', { app });
 
@@ -278,6 +283,7 @@ export default async function createApp(): Promise<express.Application> {
 	app.use('/access', accessRouter);
 	app.use('/assets', assetsRouter);
 	app.use('/collections', collectionsRouter);
+	app.use('/comments', commentsRouter);
 	app.use('/dashboards', dashboardsRouter);
 	app.use('/extensions', extensionsRouter);
 	app.use('/fields', fieldsRouter);
@@ -290,6 +296,11 @@ export default async function createApp(): Promise<express.Application> {
 	app.use('/flows', flowsRouter);
 	app.use('/folders', foldersRouter);
 	app.use('/items', itemsRouter);
+
+	if (env['METRICS_ENABLED'] === true) {
+		app.use('/metrics', metricsRouter);
+	}
+
 	app.use('/notifications', notificationsRouter);
 	app.use('/operations', operationsRouter);
 	app.use('/panels', panelsRouter);
@@ -319,8 +330,10 @@ export default async function createApp(): Promise<express.Application> {
 
 	await emitter.emitInit('routes.after', { app });
 
-	initTelemetry();
-	scheduleTusCleanup();
+	await retentionSchedule();
+	await telemetrySchedule();
+	await tusSchedule();
+	await metricsSchedule();
 
 	await emitter.emitInit('app.after', { app });
 
