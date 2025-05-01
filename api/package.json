@@ -96,6 +96,7 @@
 		"@rollup/plugin-virtual": "3.0.2",
 		"@tus/server": "1.10.2",
 		"@tus/utils": "0.5.1",
+		"@types/joi-phone-number": "5.0.8",
 		"argon2": "0.41.1",
 		"async": "3.2.6",
 		"async-mutex": "0.5.0",
